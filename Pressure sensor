@@ -1,0 +1,71 @@
+#include "LCDIC2.h"
+
+LCDIC2 lcd(0x3F, 16, 2);
+
+#include <Wire.h>  // Necessário apenas para o Arduino 1.6.5 e posterior
+const int amostras = 10000; //número de amostras coletadas para a média
+const int pin = 34; //pino de leitura
+
+const float fator_atm = 0.0098692327; //fator de conversão para atmosferas
+const float fator_bar = 0.01; //fator de conversão para bar
+const float fator_kgf_cm2 = 0.0101971621; // fator de conversão kgf/cm2
+
+
+void setup() {
+  lcd.begin ();
+  lcd.clear();
+  // put your setup code here, to run once:
+  pinMode(pin, INPUT); //pino de leitura analógica
+  Serial.begin(115200); //iniciando a serial
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  float medidas = 0.0;//variável para manipular as medidas
+  float pressao = 0.0; //variável para armazenar o valor da pressão
+
+  //inicia a coleta de amostras do ADC
+  for (int i = 0; i < amostras; i++)
+  {
+    medidas = medidas + float(analogRead(pin));
+  }
+
+  medidas = (medidas / float(amostras));//Tira a média das amostras
+
+  pressao = calculaPressao(medidas); //Calcula a pressao em kPa
+
+  Serial.print (int(medidas));
+  Serial.print(",");
+  Serial.print(String(pressao*fator_bar)+"bar");
+  Serial.print(",");
+  Serial.println(String(pressao*fator_kgf_cm2)+"kgf/cm2");
+  lcd.clear();
+  lcd.setCursor (0,1);
+  lcd.print ("Segma");
+  lcd.setCursor (1,0);
+  lcd.print (String(float(medidas-2880)));
+}
+
+float calculaPressao (float medida)
+{
+  //Calcula a pressão com o
+  //valor do AD corrigido pela função corrigeMedida()
+  //Esta função foi escrita de acordo com dados do fabricante
+  //e NÃO LEVA EM CONSIDERAÇÃO OS POSSÍVEIS DESVIOS DO COMPONENTE (erro)
+return  ((corrigeMedida(medida) / 5) - 0.04) * 0.0012858;
+}
+
+float corrigeMedida(float x) {
+  /*
+    Esta função foi obtida através da
+    relação entre a tensão aplicada no AD
+    e valor lido
+  */
+  return   4.821224180510e-02
+           +   1.180826610901e-03 * x
+           +  -6.640183463236e-07 * x * x
+           +   5.235532597676e-10 * x * x * x
+           +  -2.020362975028e-13 * x * x * x * x
+           +   3.809807883001e-17 * x * x * x * x * x
+           +  -2.896158699016e-21 * x * x * x * x * x * x;
+}
